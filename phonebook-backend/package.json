@@ -8,7 +8,8 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build:ui": "rm -rf dist && cd ../../full-stack-open/part2/phonebook && npm run build && cp -r dist ../../../full-stack-open-part3/phonebook-backend"
+    "build:ui": "rm -rf dist && cd ../../full-stack-open/part2/phonebook && npm run build && cp -r dist ../../../full-stack-open-part3/phonebook-backend",
+    "deploy:full": "npm run build:ui && git add . && git commit -m \"ui build\" && git push"
   },
   "author": "Brendon Crave",
   "license": "MIT",
