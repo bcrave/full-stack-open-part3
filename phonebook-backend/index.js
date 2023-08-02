@@ -92,7 +92,7 @@ const unknownEndpoint = (req, res) => {
 
 app.use(unknownEndpoint);
 
-const PORT = import.meta.env.VITE_PORT || 3001;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   `Listening on port ${PORT}`;
 });
