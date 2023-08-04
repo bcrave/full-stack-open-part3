@@ -1,19 +1,19 @@
+import "dotenv/config";
 import express from "express";
 import morgan from "morgan";
 import cors from "cors";
 
-import { people, createPerson, deletePerson } from "./data.js";
+import Person from "./models/person.js";
 
 const app = express();
+morgan.token("body", (req, res) => JSON.stringify(req.body));
 
+app.use(express.static("dist"));
 app.use(express.json());
 app.use(cors());
-app.use(express.static("dist"));
-morgan.token("body", (req, res) => JSON.stringify(req.body));
 app.use(
   morgan(":method :url :status :res[content-length] - :response-time ms :body")
 );
-
 app.use("/api/info", (req, res, next) => {
   res.set({
     Date: new Date(),
@@ -22,62 +22,65 @@ app.use("/api/info", (req, res, next) => {
 });
 
 app.get("/api/people", (req, res) => {
-  res.json(people);
+  Person.find({}).then((people) => {
+    res.json(people);
+  });
 });
 
-app.post("/api/people", (req, res) => {
-  const body = req.body;
+app.post("/api/people", async (req, res, next) => {
+  const { body } = req;
 
-  if (!body.name || !body.number) {
-    return res
-      .status(400)
-      .send({ message: "Name or number missing", type: "error" });
-  }
-
-  if (
-    people.some((person) => {
-      return person.name.toLowerCase() === body.name.toLowerCase();
-    })
-  ) {
-    return res
-      .status(400)
-      .send({ message: "User name already exists", type: "error" });
-  }
-
-  const maxId =
-    people.length > 0 ? Math.max(...people.map((person) => person.id)) : 0;
-
-  const person = {
-    id: maxId + 1,
+  const person = new Person({
     ...body,
-  };
+  });
 
-  createPerson(person);
-
-  res.json(person);
+  person
+    .save()
+    .then((savedPerson) => {
+      res.json(savedPerson);
+    })
+    .catch((err) => next(err));
 });
 
-app.get("/api/people/:id", (req, res) => {
-  const id = parseInt(req.params.id);
-  const person = people.find((person) => person.id === id);
+app.get("/api/people/:id", async (req, res, next) => {
+  const { id } = req.params;
 
-  if (!person) return res.status(404).send(`No person with ID ${id}`);
-
-  res.json(person);
+  Person.findById(id)
+    .then((person) => {
+      if (person) res.json(person);
+      else res.status(404).end();
+    })
+    .catch((error) => next(error));
 });
 
-app.delete("/api/people/:id", (req, res) => {
-  const id = parseInt(req.params.id);
-  const person = people.find((person) => person.id === id);
+app.put("/api/people/:id", (req, res, next) => {
+  const { id } = req.params;
+  const { name, number } = req.body;
 
-  if (!person) return res.status(404).send(`No person with ID ${id}`);
-
-  deletePerson(id);
-
-  res.json(people);
+  Person.findByIdAndUpdate(
+    id,
+    { name, number },
+    { new: true, runValidators: true, context: "query" }
+  )
+    .then((updatedPerson) => {
+      res.json(updatedPerson);
+    })
+    .catch((err) => next(err));
 });
 
-app.get("/api/info", (req, res) => {
+app.delete("/api/people/:id", (req, res, next) => {
+  const { id } = req.params;
+
+  Person.findByIdAndRemove(id)
+    .then((result) => {
+      res.status(204).end();
+    })
+    .catch((err) => next(err));
+});
+
+app.get("/api/info", async (req, res) => {
+  const people = await Person.find({});
+
   const numOfPeople = people.length;
   const date = res.get("Date");
 
@@ -91,9 +94,23 @@ const unknownEndpoint = (req, res) => {
   res.status(404).send({ error: "unknown endpoint" });
 };
 
-app.use(unknownEndpoint);
+const errorHandler = (err, req, res, next) => {
+  console.error(err.message);
 
-const PORT = process.env.PORT || 3001;
+  if (err.name === "CastError")
+    return res.status(400).send({ error: "Malformatted id" });
+  else if (err.name === "ValidationError")
+    return res.status(400).json({ error: err.message });
+  else if (err.name === "MongoServerError" && err.code === 11000)
+    return res.status(400).json({ error: "Name already exists in phonebook" });
+
+  next(err);
+};
+
+app.use(unknownEndpoint);
+app.use(errorHandler);
+
+const PORT = process.env.PORT;
 app.listen(PORT, () => {
   `Listening on port ${PORT}`;
 });
