@@ -6,7 +6,7 @@ import cors from "cors";
 import Person from "./models/person.js";
 
 const app = express();
-morgan.token("body", (req, res) => JSON.stringify(req.body));
+morgan.token("body", (req) => JSON.stringify(req.body));
 
 app.use(express.static("dist"));
 app.use(express.json());
@@ -111,9 +111,9 @@ app.get("/api/info", async (req, res) => {
   const date = res.get("Date");
 
   res.send(`
-    <p>Phonebook has info for ${numOfPeople} people</p>
-    <p>${date}</p>
-  `);
+		<p>Phonebook has info for ${numOfPeople} people</p>
+		<p>${date}</p>
+	`);
 });
 
 const unknownEndpoint = (req, res) => {
