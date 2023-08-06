@@ -22,12 +22,35 @@ app.use("/api/info", (req, res, next) => {
 });
 
 app.get("/api/people", (req, res) => {
-  Person.find({}).then((people) => {
-    res.json(people);
-  });
+  const { name } = req.body;
+  console.log("REQUEST BODY", req.body);
+
+  if (name) {
+    Person.find({ name: name }).then((person) => {
+      console.log("PERSON TO UPDATE:", person);
+      if (person) res.json(person);
+      else res.status(404).end();
+    });
+  } else {
+    Person.find({}).then((people) => {
+      res.json(people);
+    });
+  }
+});
+
+app.get("/api/people/:id", async (req, res, next) => {
+  const { id } = req.params;
+
+  Person.findById(id)
+    .then((person) => {
+      if (person) res.json(person);
+      else res.status(404).end();
+    })
+    .catch((error) => next(error));
 });
 
 app.post("/api/people", async (req, res, next) => {
+  console.log("POST TRIGGERED");
   const { body } = req;
 
   const person = new Person({
@@ -42,17 +65,6 @@ app.post("/api/people", async (req, res, next) => {
     .catch((err) => next(err));
 });
 
-app.get("/api/people/:id", async (req, res, next) => {
-  const { id } = req.params;
-
-  Person.findById(id)
-    .then((person) => {
-      if (person) res.json(person);
-      else res.status(404).end();
-    })
-    .catch((error) => next(error));
-});
-
 app.put("/api/people/:id", (req, res, next) => {
   const { id } = req.params;
   const { name, number } = req.body;
@@ -63,7 +75,13 @@ app.put("/api/people/:id", (req, res, next) => {
     { new: true, runValidators: true, context: "query" }
   )
     .then((updatedPerson) => {
-      res.json(updatedPerson);
+      if (updatedPerson) res.json(updatedPerson);
+      else {
+        const err = new Error(`No record for ${name}`);
+        err.status = 404;
+        err.name = "RecordNotFoundError";
+        next(err);
+      }
     })
     .catch((err) => next(err));
 });
@@ -73,7 +91,15 @@ app.delete("/api/people/:id", (req, res, next) => {
 
   Person.findByIdAndRemove(id)
     .then((result) => {
-      res.status(204).end();
+      if (result) {
+        console.log(result);
+        res.status(204).end();
+      } else {
+        const err = new Error(`No record with id: ${id}`);
+        err.status = 404;
+        err.name = "RecordNotFoundError";
+        next(err);
+      }
     })
     .catch((err) => next(err));
 });
@@ -103,6 +129,8 @@ const errorHandler = (err, req, res, next) => {
     return res.status(400).json({ error: err.message });
   else if (err.name === "MongoServerError" && err.code === 11000)
     return res.status(400).json({ error: "Name already exists in phonebook" });
+  else if (err.name === "RecordNotFoundError")
+    return res.status(404).json({ error: "Record not found" });
 
   next(err);
 };

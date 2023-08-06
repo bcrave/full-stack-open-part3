@@ -19,7 +19,7 @@ mongoose
 const personSchema = new mongoose.Schema({
   name: {
     type: String,
-    minLength: 2,
+    minLength: 3,
     required: true,
     unique: true,
   },
@@ -27,6 +27,9 @@ const personSchema = new mongoose.Schema({
     type: String,
     minLength: 10,
     required: true,
+    validate: {
+      validator: (v) => /^(\d{2,3})(-\d+)+$/.test(v),
+    },
   },
 });
 
